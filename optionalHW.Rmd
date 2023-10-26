@@ -1,0 +1,185 @@
+---
+title: "QBIO 481 Optional HW"
+author: Brandon Ye
+---
+
+```{r}
+# install and load required packages
+# 3b
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(version='devel')
+# 3c
+BiocManager::install("DNAshapeR")
+library(DNAshapeR)
+# 3d
+install.packages("caret")
+library(caret)
+```
+
+```{r}
+# 4a/b
+# code adapted from provided skeleton code on Problem 4 of QBIO 481 HW3 (Fall 2022)
+# function to build a model that reads input fasta data and outputs an R^2 value
+DNA_Shape_MLR <- function(dataPath, featureType, fasta_filename, ht_filename) {
+  fn_fasta <- paste0(dataPath, fasta_filename)
+  pred <- getShape(fn_fasta)
+  
+  featureVector <- encodeSeqShape(fn_fasta, pred, featureType)
+  fn_exp <- paste0(dataPath, ht_filename)
+  
+  exp_data <- read.table(fn_exp)
+  
+  df <- data.frame(affinity=exp_data$V2, featureVector)
+  
+  trainControl <- trainControl(method = "cv", number = 10, savePredictions = TRUE)
+  
+  model <- train(affinity~ ., data = df, trControl=trainControl, method = "lm", preProcess=NULL)
+  
+  result <- model$results$Rsquared[1]
+  return(result)
+}
+```
+
+```{r}
+# 4b
+# code adapted from provided skeleton code on Problem 4 of QBIO 481 HW3 (Fall 2022)
+# calls the DNA_Shape_MLR function to generate R^2 values for 1-mer and 1-mer+shape models with respect to Mad, Max, and Myc datasets
+dataPath <- "/Users/brandonye/Desktop/fa23/QBIO 481/optionalHW/data/"
+
+featureType_1_mer <- c("1-mer")
+featureType_1_mer_shape <- c("1-mer", "1-shape")
+
+# Mad
+mad_one_mer_R_Square <- DNA_Shape_MLR(dataPath, featureType_1_mer, "Mad.txt.fa", "Mad.txt")
+mad_one_mer_shape_R_Square <- DNA_Shape_MLR(dataPath, featureType_1_mer_shape, "Mad.txt.fa", "Mad.txt")
+
+# Max
+max_one_mer_R_Square <- DNA_Shape_MLR(dataPath, featureType_1_mer, "Max.txt.fa", "Max.txt")
+max_one_mer_shape_R_Square <- DNA_Shape_MLR(dataPath, featureType_1_mer_shape, "Max.txt.fa", "Max.txt")
+
+# Myc
+myc_one_mer_R_Square <- DNA_Shape_MLR(dataPath, featureType_1_mer, "Myc.txt.fa", "Myc.txt")
+myc_one_mer_shape_R_Square <- DNA_Shape_MLR(dataPath, featureType_1_mer_shape, "Myc.txt.fa", "Myc.txt")
+
+one_mer <- c(mad_one_mer_R_Square, max_one_mer_R_Square, myc_one_mer_R_Square)
+one_mer_shape <- c(mad_one_mer_shape_R_Square, max_one_mer_shape_R_Square, myc_one_mer_shape_R_Square)
+TF_Family <- c("Mad", "Max", "Myc")
+colors <- c("red", "green", "blue")
+R_square_df <- data.frame(one_mer, one_mer_shape, colors, TF_Family)
+
+R_square_df$average <- (R_square_df$one_mer + R_square_df$one_mer_shape)/2
+R_square_df
+```
+
+```{r}
+# 5a
+# code adapted from provided skeleton code on Problem 4 of QBIO 481 HW3 (Fall 2022)
+# generate a a comparison plot between 1-mer and 1-mer+shape models as in Zhou et al. (PNAS 2015) Figure 1b
+R_square_df$colors<-as.character(R_square_df$colors)
+ggplot(R_square_df, label = TF_Family) +
+  geom_point(aes(x =one_mer , y = one_mer_shape, color=TF_Family), size=1, show.legend = TRUE) +
+  geom_abline(slope=1) + 
+  geom_vline(xintercept=0) + 
+  geom_hline(yintercept=0) + 
+  scale_color_manual(values=c(R_square_df$colors)) +
+  coord_fixed(ratio = 1, xlim = c(0,1), ylim = c(0,1)) +
+  scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 0))
+```
+```{r}
+# 7a - bound
+# Load the necessary libraries
+library(DNAshapeR)
+library(Biostrings)
+
+# predict shape features for the bound.fa file
+file_path <- "/Users/brandonye/Desktop/fa23/QBIO 481/optionalHW/data/bound.fa"
+shape_features <- getShape(file_path)
+
+par(mfrow=c(2,2)) # 2x2 grid orientation
+
+# calls to plotShape
+plotShape(shape_features$MGW, main="MGW - bound")
+plotShape(shape_features$ProT, main="ProT - bound")
+plotShape(shape_features$Roll, main="Roll - bound")
+plotShape(shape_features$HelT, main="HelT - bound")
+```
+```{r}
+# 7a - unbound
+# predict shape features for the bound.fa file
+file_path <- "/Users/brandonye/Desktop/fa23/QBIO 481/optionalHW/data/unbound.fa"
+shape_features <- getShape(file_path)
+
+par(mfrow=c(2,2)) # 2x2 grid orientation
+
+# calls to plotShape
+plotShape(shape_features$MGW, main="MGW - unbound")
+plotShape(shape_features$ProT, main="ProT - unbound")
+plotShape(shape_features$Roll, main="Roll - unbound")
+plotShape(shape_features$HelT, main="HelT - unbound")
+```
+
+```{r}
+# 8a
+# Read and encode sequences
+file_path_bound <- "/Users/brandonye/Desktop/fa23/QBIO 481/optionalHW/data/bound.fa"
+file_path_unbound <- "/Users/brandonye/Desktop/fa23/QBIO 481/optionalHW/data/unbound.fa"
+bound_seq <- readDNAStringSet(file_path_bound)
+unbound_seq <- readDNAStringSet(file_path_unbound)
+
+# bound and unbound shape features
+bound_shape <- getShape(file_path_bound)
+unbound_shape <- getShape(file_path_unbound)
+
+# encode features for 1-mer
+bound_1mer <- encodeSeqShape(file_path_bound, bound_shape, "1-mer")
+unbound_1mer <- encodeSeqShape(file_path_unbound, unbound_shape, "1-mer")
+
+# encode features for 1-mer+shape
+bound_1mer_shape <- encodeSeqShape(file_path_bound, bound_shape, c("1-mer", "1-shape"))
+unbound_1mer_shape <- encodeSeqShape(file_path_unbound, unbound_shape, c("1-mer", "1-shape"))
+
+# add labels: unbound=0, bound=1
+bound_labels <- rep(1, length(bound_seq))
+unbound_labels <- rep(0, length(unbound_seq))
+
+# build the 1-mer model
+data_1mer <- as.data.frame(rbind(bound_1mer, unbound_1mer)) # error without as.data.frame
+labels_1mer <- c(bound_labels, unbound_labels)
+model_1mer <- glm(labels_1mer ~ ., family = binomial(), data = data_1mer)
+
+# build the 1-mer+shape model
+data_1mer_shape <- as.data.frame(rbind(bound_1mer_shape, unbound_1mer_shape)) # error without as.data.frame
+labels_1mer_shape <- c(bound_labels, unbound_labels)
+model_1mer_shape <- glm(labels_1mer_shape ~ ., family = binomial(), data = data_1mer_shape)
+
+# for AUC/ROC curves
+install.packages("ROCR")
+library(ROCR)
+
+# predict using the 1-mer model
+pred_1mer <- predict(model_1mer, newdata = data_1mer, type = "response")
+pred_1mer <- as.numeric(pred_1mer) # reformatting to numeric otherwise error
+
+# store predictions and calcualte performance
+pred_obj_1mer <- prediction(pred_1mer, labels_1mer)
+perf_1mer <- performance(pred_obj_1mer, measure = "tpr", x.measure = "fpr")
+
+# same thing for 1-mer+shape
+pred_1mer_shape <- predict(model_1mer_shape, newdata = data_1mer_shape, type = "response")
+pred_1mer_shape <- as.numeric(pred_1mer_shape)
+pred_obj_1mer_shape <- prediction(pred_1mer_shape, labels_1mer_shape)
+perf_1mer_shape <- performance(pred_obj_1mer_shape, measure = "tpr", x.measure = "fpr")
+
+# plot ROC and calculate AUC
+# mainly sourced from https://cran.rstudio.com/web/packages/ROCR/vignettes/ROCR.html#:~:text=ROCR%20is%20a%20flexible%20evaluation,performance%20measures%20(Table%201).
+# inspiration also from ChatGPT
+plot(perf_1mer, col="red", main="ROC Curves", lwd=2)
+plot(perf_1mer_shape, col="blue", add=TRUE, lwd=2)
+legend("bottomright", legend=c("1-mer", "1-mer+shape"), fill=c("red", "blue"))
+
+auc_1mer <- performance(pred_obj_1mer, measure = "auc")@y.values[[1]]
+auc_1mer_shape <- performance(pred_obj_1mer_shape, measure = "auc")@y.values[[1]]
+print(paste("AUC for 1-mer model:", auc_1mer))
+print(paste("AUC for 1-mer+shape model:", auc_1mer_shape))
+```
