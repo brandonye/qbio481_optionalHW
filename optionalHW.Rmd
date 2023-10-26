@@ -69,7 +69,7 @@ colors <- c("red", "green", "blue")
 R_square_df <- data.frame(one_mer, one_mer_shape, colors, TF_Family)
 
 R_square_df$average <- (R_square_df$one_mer + R_square_df$one_mer_shape)/2
-R_square_df
+R_square_df # averages for Mad, Max, and Myc: 0.866, 0.859, and 0.850, respectively
 ```
 
 ```{r}
